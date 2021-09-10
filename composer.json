@@ -1,0 +1,22 @@
+{
+    "name": "dovechen/yii2-douyin",
+    "description": "Yii2 Douyin SDK",
+    "type": "yii2-extension",
+    "keywords": ["yii2","extension","douyin","抖音"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Dove Chen",
+            "email": "pacifist88@163.com"
+        }
+    ],
+    "require": {
+        "yiisoft/yii2": "~2.0.0",
+        "php": ">=7.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "dovechen\\yii2\\douyin\\": ""
+        }
+    }
+}
