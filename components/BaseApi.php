@@ -9,6 +9,9 @@
 		public $repJson   = NULL;
 		public $repRawStr = NULL;
 
+		/* 重新授权码 */
+		const RE_AUTHORIZE_CODE = 10020;
+
 		/* 获取access_token */
 		const GET_ACCESS_TOKEN = '/oauth/access_token/';
 		/* 刷新refresh_token */
@@ -16,16 +19,30 @@
 		/* 生成client_token */
 		const CLIENT_TOKEN = '/oauth/client_token/';
 		/* 刷新access_token */
-		const REFRESH_TOKEN = ' /oauth/refresh_token/';
+		const REFRESH_TOKEN = '/oauth/refresh_token/';
 
 		/* 获取授权码(code)_静默 */
-		const AUTHORIZE_V2 = ' /oauth/authorize/v2/';
+		const AUTHORIZE_V2 = '/oauth/authorize/v2/';
 		/* 获取授权码(code) */
-		const DOUYIN_GET_CODE = ' /platform/oauth/connect/';
+		const DOUYIN_GET_CODE = '/platform/oauth/connect/';
 		/* 获取授权码(code) */
-		const TOUTIAO_GET_CODE = ' /oauth/authorize/';
+		const TOUTIAO_GET_CODE = '/oauth/authorize/';
 		/* 获取授权码(code) */
-		const XIGUA_GET_CODE = ' /oauth/connect';
+		const XIGUA_GET_CODE = '/oauth/connect';
+
+		/* 获取用户信息 */
+		const USERINFO = '/oauth/userinfo/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
+		/* 粉丝列表 */
+		const FANS_LIST = '/fans/list/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
+		/* 粉丝判断 */
+		const FANS_CHECK = '/fans/check/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
+		/* 关注列表 */
+		const FOLLOWING_LIST = '/following/list/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
+
+		/* 获取意向用户列表 */
+		const INTENTION_USER = '/enterprise/leads/user/list/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
+		/* 获取意向用户详情 */
+		const INTENTION_USER_INFO = '/enterprise/leads/user/detail/?access_token=ACCESS_TOKEN&open_id=OPEN_ID';
 
 		protected function GetAccessToken ($type = \HttpUtils::DOYIN_TYPE, $force = false)
 		{
@@ -139,7 +156,7 @@
 			} else if ('GET' == strtoupper($method)) {
 				if (count($args) > 0) {
 					foreach ($args as $key => $value) {
-						if ($value == NULL)
+						if ($value === NULL)
 							continue;
 						if (strpos($url, '?')) {
 							$url .= ('&' . $key . '=' . $value);
@@ -180,9 +197,12 @@
 				$tokenType = NULL;
 				$realUrl   = $url;
 
+				if (strpos($url, "OPEN_ID")) {
+					$realUrl = str_replace('OPEN_ID', $this->open_id, $realUrl);
+				}
 				if (strpos($url, "ACCESS_TOKEN")) {
 					$token     = $this->GetAccessToken($type);
-					$realUrl   = str_replace('ACCESS_TOKEN', $token, $url);
+					$realUrl   = str_replace('ACCESS_TOKEN', $token, $realUrl);
 					$tokenType = "ACCESS_TOKEN";
 				} else {
 					$tokenType = "NO_TOKEN";
@@ -196,17 +216,23 @@
 				$this->repJson = json_decode($this->repRawStr, true);
 
 				$errCode = Utils::arrayGet($this->repJson['data'], "error_code");
-				if ($errCode == NULL) {
+				if ($errCode === NULL) {
 					$errCode = Utils::arrayGet($this->repJson['extra'], "error_code");
 				}
 
+				if ($errCode == 10020) {
+					$this->_ThrowError(self::RE_AUTHORIZE_CODE);
+				}
 				if ($errCode == 10010) {
+					if (strpos($url, 'renew_refresh_token')) {
+						$this->_ThrowError(self::RE_AUTHORIZE_CODE);
+					}
 					$result = $this->RenewRefreshToken($type);
 					$this->SetRefreshToken($result);
 					continue;
 				}
 
-				if ($errCode == 2190015 || $errCode == 10008) { // token expired
+				if ($errCode == 2190015 || $errCode == 10008 || $errCode == 2190008) { // token expired
 					if ("NO_TOKEN" != $tokenType && true == $refreshTokenWhenExpired) {
 						$result = $this->RefreshAccessToken($type);
 						$this->SetAccessToken($result);
@@ -240,7 +266,7 @@
 			$postData = $args;
 			if (!$isPostFile) {
 				if (!is_string($args)) {
-					$postData = HttpUtils::Array2Json($args);
+					//$postData = HttpUtils::Array2Json($args);
 				}
 			}
 			$this->repJson   = NULL;
@@ -251,12 +277,19 @@
 				$tokenType = NULL;
 				$realUrl   = $url;
 
+				if (strpos($url, "OPEN_ID")) {
+					$realUrl = str_replace('OPEN_ID', $this->open_id, $realUrl);
+				}
 				if (strpos($url, "ACCESS_TOKEN")) {
 					$token     = $this->GetAccessToken($type);
-					$realUrl   = str_replace('ACCESS_TOKEN', $token, $url);
+					$realUrl   = str_replace('ACCESS_TOKEN', $token, $realUrl);
 					$tokenType = "ACCESS_TOKEN";
 				} else {
 					$tokenType = "NO_TOKEN";
+				}
+
+				if (strpos($url, "/refresh_token/") !== false) {
+					$postData['refresh_token'] = $this->refresh_token;
 				}
 
 				$this->repRawStr = HttpUtils::httpPost($realUrl, $postData);
@@ -267,17 +300,24 @@
 				$this->repJson = json_decode($this->repRawStr, true);
 
 				$errCode = Utils::arrayGet($this->repJson['data'], "error_code");
-				if ($errCode == NULL) {
+
+				if ($errCode === NULL) {
 					$errCode = Utils::arrayGet($this->repJson['extra'], "error_code");
 				}
 
+				if ($errCode == 10020) {
+					$this->_ThrowError(self::RE_AUTHORIZE_CODE);
+				}
 				if ($errCode == 10010) {
+					if (strpos($url, '/renew_refresh_token/')) {
+						$this->_ThrowError(self::RE_AUTHORIZE_CODE);
+					}
 					$result = $this->RenewRefreshToken($type);
 					$this->SetRefreshToken($result);
 					continue;
 				}
 
-				if ($errCode == 2190015 || $errCode == 10008) { // token expired
+				if ($errCode == 2190015 || $errCode == 10008 || $errCode == 2190008) { // token expired
 					if ("NO_TOKEN" != $tokenType && true == $refreshTokenWhenExpired) {
 						$result = $this->RefreshAccessToken($type);
 						$this->SetAccessToken($result);
@@ -311,10 +351,9 @@
 				throw new \ParameterError("invalid type " . gettype($rsp));
 
 			$errCode = Utils::arrayGet($rsp['data'], "error_code");
-			if ($errCode == NULL) {
+			if ($errCode === NULL) {
 				$errCode = Utils::arrayGet($rsp['extra'], "error_code");
 			}
-
 			$errInfo = errorCode::getErrorInfo($errCode);
 
 			if (!is_null($errInfo)) {

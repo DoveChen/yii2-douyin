@@ -69,14 +69,14 @@
 			];
 
 		/**
-		 * @param string|int $errorCode
+		 * @param string|int $errCode
 		 *
 		 * @return mixed|null
 		 */
-		public static function getErrorInfo ($errorCode)
+		public static function getErrorInfo ($errCode)
 		{
 			$errorCode = new self();
 
-			return Utils::arrayGet($errorCode->errorInfo, $errorCode);
+			return Utils::arrayGet($errorCode->errorInfo, $errCode);
 		}
 	}
